@@ -6,7 +6,7 @@ import { satsToRwf, createTransfer } from "../intergrations/flutterwave/flutterw
 import type { CreateWithdrawalInput } from "../schemas/withdrawal.schema.js";
 import type { BalanceResponse, WithdrawalResponse } from "../types/withdrawal.types.js";
 
-const MIN_WITHDRAWAL_SATS = 1000;
+const MIN_WITHDRAWAL_SATS = 100;
 
 function toWithdrawalResponse(withdrawal: {
   id: string;
