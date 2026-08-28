@@ -12,7 +12,7 @@ function Navbar() {
       <nav className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
         <Link to="/" className="flex items-center gap-2 font-semibold text-slate-900">
           <Zap className="h-5 w-5 text-orange-500" />
-          Lightning TipJar
+          Sangira TipJar
         </Link>
 
         <div className="flex items-center gap-4 text-sm">

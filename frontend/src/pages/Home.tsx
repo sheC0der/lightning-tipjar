@@ -15,7 +15,7 @@ function Home() {
           Send sats globally. Receive value locally.
         </h1>
         <p className="max-w-lg text-slate-600">
-          Lightning TipJar lets anyone support creators, workers, and developers with Bitcoin over the Lightning
+          Sangira TipJar lets anyone support creators, workers, and developers with Bitcoin over the Lightning
           Network — and cash out straight to Mobile Money in Rwandan Francs.
         </p>
         <Link

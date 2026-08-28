@@ -39,14 +39,10 @@ model Tip {
   tipperName          String?
   message             String?
   amountSats          Int
+  claimedSats         Int       @default(0)
   status              TipStatus @default(PENDING)
   blinkPaymentHash    String    @unique
   blinkPaymentRequest String    @db.Text
-  withdrawalId        String?
-  withdrawal          Withdrawal?    @relation(fields: [withdrawalId], references: [id])
-  lightningSendId     String?
-  lightningSend       LightningSend? @relation(fields: [lightningSendId], references: [id])
-  withdrawnAt         DateTime?
   createdAt           DateTime  @default(now())
   paidAt              DateTime?
 
@@ -74,8 +70,6 @@ model Withdrawal {
   createdAt             DateTime         @default(now())
   completedAt           DateTime?
 
-  tips Tip[]
-
   @@index([creatorId, status])
 }
 
@@ -96,8 +90,6 @@ model LightningSend {
   failureReason    String?
   createdAt        DateTime            @default(now())
   completedAt      DateTime?
-
-  tips Tip[]
 
   @@index([creatorId, status])
 }

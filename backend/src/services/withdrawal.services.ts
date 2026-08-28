@@ -3,7 +3,7 @@ import { prisma } from "../config/db.js";
 import { AppError } from "../utils/app-error.js";
 import { logger } from "../utils/logger.js";
 import { satsToRwf, createTransfer } from "../intergrations/flutterwave/flutterwave.client.js";
-import { getAvailableSats, selectTipsToCover, MIN_PAYOUT_SATS } from "./ledger.services.js";
+import { getAvailableSats, planClaim, applyClaims, revertClaims, MIN_PAYOUT_SATS } from "./ledger.services.js";
 import type { CreateWithdrawalInput } from "../schemas/withdrawal.schema.js";
 import type { BalanceResponse, WithdrawalResponse } from "../types/withdrawal.types.js";
 
@@ -67,7 +67,7 @@ export async function requestWithdrawal(
     throw AppError.badRequest("Requested amount exceeds available balance");
   }
 
-  const tipsToCover = await selectTipsToCover(creatorId, amountSats);
+  const claims = await planClaim(creatorId, amountSats);
 
   const { amountRwf, exchangeRateUsed } = await satsToRwf(amountSats);
   const reference = `tj${crypto.randomUUID().replace(/-/g, "")}`.slice(0, 42);
@@ -83,10 +83,7 @@ export async function requestWithdrawal(
     },
   });
 
-  await prisma.tip.updateMany({
-    where: { id: { in: tipsToCover.map((t) => t.id) } },
-    data: { withdrawalId: withdrawal.id, withdrawnAt: new Date() },
-  });
+  await applyClaims(claims);
 
   try {
     const transfer = await createTransfer({
@@ -95,7 +92,7 @@ export async function requestWithdrawal(
       phoneNumber: creator.mobileMoneyNumber,
       displayName: creator.displayName,
       reference,
-      narration: `Lightning TipJar payout for @${creator.username}`,
+      narration: `Sangira TipJar payout for @${creator.username}`,
     });
 
     const updated = await prisma.withdrawal.update({
@@ -111,19 +108,14 @@ export async function requestWithdrawal(
   } catch (err) {
     logger.error("Withdrawal transfer failed, reverting covered tips", { withdrawalId: withdrawal.id });
 
-    await prisma.$transaction([
-      prisma.tip.updateMany({
-        where: { withdrawalId: withdrawal.id },
-        data: { withdrawalId: null, withdrawnAt: null },
-      }),
-      prisma.withdrawal.update({
-        where: { id: withdrawal.id },
-        data: {
-          status: "FAILED",
-          failureReason: err instanceof AppError ? err.message : "Unknown error contacting Flutterwave",
-        },
-      }),
-    ]);
+    await revertClaims(claims);
+    await prisma.withdrawal.update({
+      where: { id: withdrawal.id },
+      data: {
+        status: "FAILED",
+        failureReason: err instanceof AppError ? err.message : "Unknown error contacting Flutterwave",
+      },
+    });
 
     throw err;
   }

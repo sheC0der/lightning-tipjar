@@ -15,7 +15,7 @@ export interface LnurlPayParams {
 }
 
 function buildDescription(displayName: string, username: string): string {
-  return `Tip for ${displayName} (@${username}) on Lightning TipJar`;
+  return `Tip for ${displayName} (@${username}) on Sangira TipJar`;
 }
 
 export function buildLnurlMetadata(displayName: string, username: string): string {

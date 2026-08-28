@@ -2,7 +2,7 @@ import { prisma } from "../config/db.js";
 import { AppError } from "../utils/app-error.js";
 import { logger } from "../utils/logger.js";
 import { payInvoice, payToLightningAddress } from "../intergrations/blink/blink.client.js";
-import { getAvailableSats, selectTipsToCover } from "./ledger.services.js";
+import { getAvailableSats, planClaim, applyClaims, revertClaims } from "./ledger.services.js";
 import type { CreateLightningSendInput } from "../schemas/lightning-send.schema.js";
 import type { LightningSendStatus } from "@prisma/client";
 
@@ -49,7 +49,7 @@ export async function requestLightningSend(
     throw AppError.badRequest("Requested amount exceeds available balance");
   }
 
-  const tipsToCover = await selectTipsToCover(creatorId, amountSats);
+  const claims = await planClaim(creatorId, amountSats);
 
   const send = await prisma.lightningSend.create({
     data: {
@@ -60,10 +60,7 @@ export async function requestLightningSend(
     },
   });
 
-  await prisma.tip.updateMany({
-    where: { id: { in: tipsToCover.map((t) => t.id) } },
-    data: { lightningSendId: send.id, withdrawnAt: new Date() },
-  });
+  await applyClaims(claims);
 
   try {
     const result = isLightningAddress(input.destination)
@@ -88,19 +85,14 @@ export async function requestLightningSend(
   } catch (err) {
     logger.error("Lightning send failed, reverting covered tips", { sendId: send.id });
 
-    await prisma.$transaction([
-      prisma.tip.updateMany({
-        where: { lightningSendId: send.id },
-        data: { lightningSendId: null, withdrawnAt: null },
-      }),
-      prisma.lightningSend.update({
-        where: { id: send.id },
-        data: {
-          status: "FAILED",
-          failureReason: err instanceof AppError ? err.message : "Unknown error sending payment",
-        },
-      }),
-    ]);
+    await revertClaims(claims);
+    await prisma.lightningSend.update({
+      where: { id: send.id },
+      data: {
+        status: "FAILED",
+        failureReason: err instanceof AppError ? err.message : "Unknown error sending payment",
+      },
+    });
 
     throw err;
   }
