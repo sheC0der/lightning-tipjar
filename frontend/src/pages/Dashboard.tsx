@@ -1,13 +1,16 @@
 import { useState } from "react";
-import { Loader2, Send, Wallet, Zap } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Download, Loader2, Send, Wallet, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCurrentCreator } from "../hooks/useAuth";
 import { useMyBalance, useMyTips, useMyWithdrawals } from "../hooks/useDashboard";
 import { useWithdraw } from "../hooks/useWithdraw";
 import { useMyLightningSends, useSendPayment } from "../hooks/useLightningSend";
+import { useCreateTip } from "../hooks/useCreateTip";
 import { useNotify } from "../components/Notification";
 import { getErrorMessage } from "../services/api";
 import LightningAddressBadge from "../components/LightningAddressBadge";
+import PaymentStatus from "../components/PaymentStatus";
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString();
@@ -21,11 +24,21 @@ function Dashboard() {
   const { data: lightningSends } = useMyLightningSends();
   const withdraw = useWithdraw();
   const sendPayment = useSendPayment();
+  const createReceiveTip = useCreateTip(me?.username);
   const notify = useNotify();
+  const queryClient = useQueryClient();
 
   const [showSendForm, setShowSendForm] = useState(false);
   const [sendDestination, setSendDestination] = useState("");
   const [sendAmount, setSendAmount] = useState("");
+
+  const [showReceiveForm, setShowReceiveForm] = useState(false);
+  const [receiveAmount, setReceiveAmount] = useState("");
+  const [receiveInvoice, setReceiveInvoice] = useState<{
+    tipId: string;
+    paymentRequest: string;
+    amountSats: number;
+  } | null>(null);
 
   async function handleWithdraw() {
     try {
@@ -50,6 +63,30 @@ function Dashboard() {
     } catch (err) {
       notify("error", getErrorMessage(err));
     }
+  }
+
+  async function handleReceiveSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const amountSats = Number(receiveAmount);
+    if (!amountSats || amountSats < 100) {
+      notify("error", "Enter an amount of at least 100 sats");
+      return;
+    }
+    try {
+      const result = await createReceiveTip.mutateAsync({ amountSats });
+      setReceiveInvoice({ tipId: result.tip.id, paymentRequest: result.paymentRequest, amountSats });
+    } catch (err) {
+      notify("error", getErrorMessage(err));
+    }
+  }
+
+  function handleReceivePaid() {
+    notify("success", "Payment received!");
+    queryClient.invalidateQueries({ queryKey: ["my-balance"] });
+    queryClient.invalidateQueries({ queryKey: ["my-tips"] });
+    setReceiveInvoice(null);
+    setReceiveAmount("");
+    setShowReceiveForm(false);
   }
 
   return (
@@ -99,6 +136,17 @@ function Dashboard() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
+              onClick={() => {
+                setShowReceiveForm((v) => !v);
+                setReceiveInvoice(null);
+              }}
+              className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-3 font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <Download className="h-4 w-4" />
+              Receive
+            </button>
+            <button
+              type="button"
               onClick={() => setShowSendForm((v) => !v)}
               disabled={!balance?.availableSats}
               className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-3 font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
@@ -117,6 +165,39 @@ function Dashboard() {
             </button>
           </div>
         </div>
+
+        {showReceiveForm && (
+          <div className="flex flex-col items-center gap-3 border-t border-slate-100 pt-4">
+            {receiveInvoice ? (
+              <PaymentStatus
+                tipId={receiveInvoice.tipId}
+                paymentRequest={receiveInvoice.paymentRequest}
+                amountSats={receiveInvoice.amountSats}
+                onPaid={handleReceivePaid}
+              />
+            ) : (
+              <form onSubmit={handleReceiveSubmit} className="flex w-full max-w-xs flex-col gap-3">
+                <input
+                  type="number"
+                  required
+                  min={100}
+                  placeholder="Amount in sats"
+                  value={receiveAmount}
+                  onChange={(e) => setReceiveAmount(e.target.value)}
+                  className="rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-orange-400"
+                />
+                <button
+                  type="submit"
+                  disabled={createReceiveTip.isPending}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+                >
+                  <Download className="h-4 w-4" />
+                  {createReceiveTip.isPending ? "Creating invoice..." : "Generate QR code"}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
 
         {showSendForm && (
           <form onSubmit={handleSend} className="flex flex-col gap-3 border-t border-slate-100 pt-4">
