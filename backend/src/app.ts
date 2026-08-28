@@ -9,6 +9,11 @@ import { sendSuccess } from "./utils/reponse.js";
 
 export const app = express();
 
+// Railway (and most PaaS hosts) sit behind a single reverse proxy hop, so trust
+// the X-Forwarded-For header it sets — otherwise express-rate-limit can't
+// identify real client IPs and logs ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+app.set("trust proxy", 1);
+
 app.use(helmet());
 app.use(cors({ origin: env.FRONTEND_URL }));
 app.use(
