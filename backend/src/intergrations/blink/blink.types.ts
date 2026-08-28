@@ -50,3 +50,18 @@ export interface CreateInvoiceResult {
   paymentHash: string;
   satoshis: number;
 }
+
+export type PaymentSendResult = "SUCCESS" | "FAILURE" | "PENDING" | "ALREADY_PAID";
+
+export interface PaymentSendResponsePayload {
+  status: PaymentSendResult | null;
+  errors: BlinkGraphQLError[];
+}
+
+export interface LnAddressPaymentSendResponse {
+  lnAddressPaymentSend: PaymentSendResponsePayload;
+}
+
+export interface LnInvoicePaymentSendResponse {
+  lnInvoicePaymentSend: PaymentSendResponsePayload;
+}

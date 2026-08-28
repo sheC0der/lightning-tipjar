@@ -1,8 +1,10 @@
-import { Loader2, Wallet, Zap } from "lucide-react";
+import { useState } from "react";
+import { Loader2, Send, Wallet, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCurrentCreator } from "../hooks/useAuth";
 import { useMyBalance, useMyTips, useMyWithdrawals } from "../hooks/useDashboard";
 import { useWithdraw } from "../hooks/useWithdraw";
+import { useMyLightningSends, useSendPayment } from "../hooks/useLightningSend";
 import { useNotify } from "../components/Notification";
 import { getErrorMessage } from "../services/api";
 import LightningAddressBadge from "../components/LightningAddressBadge";
@@ -16,13 +18,35 @@ function Dashboard() {
   const { data: balance, isLoading: balanceLoading } = useMyBalance();
   const { data: tips } = useMyTips();
   const { data: withdrawals } = useMyWithdrawals();
+  const { data: lightningSends } = useMyLightningSends();
   const withdraw = useWithdraw();
+  const sendPayment = useSendPayment();
   const notify = useNotify();
+
+  const [showSendForm, setShowSendForm] = useState(false);
+  const [sendDestination, setSendDestination] = useState("");
+  const [sendAmount, setSendAmount] = useState("");
 
   async function handleWithdraw() {
     try {
       await withdraw.mutateAsync(undefined);
       notify("success", "Withdrawal initiated");
+    } catch (err) {
+      notify("error", getErrorMessage(err));
+    }
+  }
+
+  async function handleSend(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      await sendPayment.mutateAsync({
+        destination: sendDestination.trim(),
+        amountSats: sendAmount ? Number(sendAmount) : undefined,
+      });
+      notify("success", "Payment sent");
+      setSendDestination("");
+      setSendAmount("");
+      setShowSendForm(false);
     } catch (err) {
       notify("error", getErrorMessage(err));
     }
@@ -56,30 +80,72 @@ function Dashboard() {
         </div>
       </div>
 
-      <div className="flex flex-col items-start gap-4 rounded-2xl border border-slate-100 bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm text-slate-500">Available balance</p>
-          {balanceLoading ? (
-            <Loader2 className="mt-2 h-5 w-5 animate-spin text-orange-500" />
-          ) : (
-            <div className="mt-1 flex items-baseline gap-2">
-              <span className="flex items-center gap-1 text-2xl font-semibold text-slate-900">
-                <Zap className="h-5 w-5 text-orange-500" />
-                {(balance?.availableSats ?? 0).toLocaleString()} sats
-              </span>
-              <span className="text-sm text-slate-500">≈ {(balance?.estimatedRwf ?? 0).toLocaleString()} RWF</span>
-            </div>
-          )}
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-white p-6">
+        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm text-slate-500">Available balance</p>
+            {balanceLoading ? (
+              <Loader2 className="mt-2 h-5 w-5 animate-spin text-orange-500" />
+            ) : (
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="flex items-center gap-1 text-2xl font-semibold text-slate-900">
+                  <Zap className="h-5 w-5 text-orange-500" />
+                  {(balance?.availableSats ?? 0).toLocaleString()} sats
+                </span>
+                <span className="text-sm text-slate-500">≈ {(balance?.estimatedRwf ?? 0).toLocaleString()} RWF</span>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setShowSendForm((v) => !v)}
+              disabled={!balance?.availableSats}
+              className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-3 font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              <Send className="h-4 w-4" />
+              Send to Lightning address
+            </button>
+            <button
+              type="button"
+              onClick={handleWithdraw}
+              disabled={withdraw.isPending || !balance?.availableSats}
+              className="flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-3 font-medium text-white hover:bg-orange-600 disabled:opacity-50"
+            >
+              <Wallet className="h-4 w-4" />
+              {withdraw.isPending ? "Processing..." : "Withdraw to Mobile Money"}
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={handleWithdraw}
-          disabled={withdraw.isPending || !balance?.availableSats}
-          className="flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-3 font-medium text-white hover:bg-orange-600 disabled:opacity-50"
-        >
-          <Wallet className="h-4 w-4" />
-          {withdraw.isPending ? "Processing..." : "Withdraw to Mobile Money"}
-        </button>
+
+        {showSendForm && (
+          <form onSubmit={handleSend} className="flex flex-col gap-3 border-t border-slate-100 pt-4">
+            <input
+              type="text"
+              required
+              placeholder="Lightning Address (user@wallet.com) or invoice"
+              value={sendDestination}
+              onChange={(e) => setSendDestination(e.target.value)}
+              className="rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-orange-400"
+            />
+            <input
+              type="number"
+              min={100}
+              placeholder={`Amount in sats (optional — defaults to full balance, ${(balance?.availableSats ?? 0).toLocaleString()} sats)`}
+              value={sendAmount}
+              onChange={(e) => setSendAmount(e.target.value)}
+              className="rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-orange-400"
+            />
+            <button
+              type="submit"
+              disabled={sendPayment.isPending}
+              className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+            >
+              <Send className="h-4 w-4" />
+              {sendPayment.isPending ? "Sending..." : "Send payment"}
+            </button>
+          </form>
+        )}
       </div>
 
       <section className="flex flex-col gap-3">
@@ -136,6 +202,35 @@ function Dashboard() {
                     <td className="px-4 py-2">{w.amountRwf.toLocaleString()} RWF</td>
                     <td className="px-4 py-2">{w.status}</td>
                     <td className="px-4 py-2 text-slate-500">{formatDate(w.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </section>
+      <section className="flex flex-col gap-3">
+        <h2 className="font-medium text-slate-900">Lightning send history</h2>
+        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white">
+          {!lightningSends || lightningSends.length === 0 ? (
+            <p className="p-6 text-center text-sm text-slate-500">No Lightning sends yet.</p>
+          ) : (
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="px-4 py-2">Amount</th>
+                  <th className="px-4 py-2">Destination</th>
+                  <th className="px-4 py-2">Status</th>
+                  <th className="px-4 py-2">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lightningSends.map((s) => (
+                  <tr key={s.id} className="border-t border-slate-100">
+                    <td className="px-4 py-2">{s.amountSats.toLocaleString()} sats</td>
+                    <td className="max-w-[220px] truncate px-4 py-2 text-slate-500">{s.destination}</td>
+                    <td className="px-4 py-2">{s.status}</td>
+                    <td className="px-4 py-2 text-slate-500">{formatDate(s.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>

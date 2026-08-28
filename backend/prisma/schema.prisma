@@ -20,8 +20,9 @@ model Creator {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  tips        Tip[]
-  withdrawals Withdrawal[]
+  tips           Tip[]
+  withdrawals    Withdrawal[]
+  lightningSends LightningSend[]
 }
 
 enum TipStatus {
@@ -42,7 +43,9 @@ model Tip {
   blinkPaymentHash    String    @unique
   blinkPaymentRequest String    @db.Text
   withdrawalId        String?
-  withdrawal          Withdrawal? @relation(fields: [withdrawalId], references: [id])
+  withdrawal          Withdrawal?    @relation(fields: [withdrawalId], references: [id])
+  lightningSendId     String?
+  lightningSend       LightningSend? @relation(fields: [lightningSendId], references: [id])
   withdrawnAt         DateTime?
   createdAt           DateTime  @default(now())
   paidAt              DateTime?
@@ -70,6 +73,29 @@ model Withdrawal {
   failureReason         String?
   createdAt             DateTime         @default(now())
   completedAt           DateTime?
+
+  tips Tip[]
+
+  @@index([creatorId, status])
+}
+
+enum LightningSendStatus {
+  PENDING
+  SUCCESSFUL
+  FAILED
+}
+
+model LightningSend {
+  id               String              @id @default(uuid())
+  creatorId        String
+  creator          Creator             @relation(fields: [creatorId], references: [id])
+  amountSats       Int
+  destination      String
+  status           LightningSendStatus @default(PENDING)
+  blinkPaymentHash String?
+  failureReason    String?
+  createdAt        DateTime            @default(now())
+  completedAt      DateTime?
 
   tips Tip[]
 

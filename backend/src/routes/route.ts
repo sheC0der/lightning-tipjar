@@ -5,12 +5,14 @@ import { validateBody, validateParams } from "../middleware/validate.middlware.j
 import { loginSchema, registerSchema, updateProfileSchema } from "../schemas/auth.schema.js";
 import { createTipSchema, tipIdParamSchema, usernameParamSchema } from "../schemas/tip.schema.js";
 import { createWithdrawalSchema } from "../schemas/withdrawal.schema.js";
+import { createLightningSendSchema } from "../schemas/lightning-send.schema.js";
 
 import * as authController from "../controllers/auth.controller.js";
 import * as creatorController from "../controllers/creator.controller.js";
 import * as tipController from "../controllers/tip.controller.js";
 import * as paymentController from "../controllers/payment.controller.js";
 import * as withdrawalController from "../controllers/withdrawal.services.js";
+import * as lightningSendController from "../controllers/lightning-send.controller.js";
 
 export const router = Router();
 
@@ -41,3 +43,13 @@ router.post("/payments/webhook/blink", paymentController.blinkWebhookHandler);
 
 // Withdrawals
 router.post("/withdrawals", requireAuth, validateBody(createWithdrawalSchema), withdrawalController.createWithdrawalHandler);
+
+// Lightning sends (send available balance to any Lightning address or invoice)
+router.get("/creators/me/lightning-sends", requireAuth, lightningSendController.listMyLightningSends);
+router.post(
+  "/lightning-sends",
+  requireAuth,
+  sensitiveActionRateLimiter,
+  validateBody(createLightningSendSchema),
+  lightningSendController.createLightningSendHandler,
+);

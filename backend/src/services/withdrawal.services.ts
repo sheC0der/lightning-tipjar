@@ -3,10 +3,9 @@ import { prisma } from "../config/db.js";
 import { AppError } from "../utils/app-error.js";
 import { logger } from "../utils/logger.js";
 import { satsToRwf, createTransfer } from "../intergrations/flutterwave/flutterwave.client.js";
+import { getAvailableSats, selectTipsToCover, MIN_PAYOUT_SATS } from "./ledger.services.js";
 import type { CreateWithdrawalInput } from "../schemas/withdrawal.schema.js";
 import type { BalanceResponse, WithdrawalResponse } from "../types/withdrawal.types.js";
-
-const MIN_WITHDRAWAL_SATS = 100;
 
 function toWithdrawalResponse(withdrawal: {
   id: string;
@@ -28,15 +27,6 @@ function toWithdrawalResponse(withdrawal: {
     completedAt: withdrawal.completedAt,
     failureReason: withdrawal.failureReason,
   };
-}
-
-async function getAvailableSats(creatorId: string): Promise<number> {
-  const result = await prisma.tip.aggregate({
-    where: { creatorId, status: "PAID", withdrawnAt: null },
-    _sum: { amountSats: true },
-  });
-
-  return result._sum.amountSats ?? 0;
 }
 
 export async function getCreatorBalance(creatorId: string): Promise<BalanceResponse> {
@@ -69,26 +59,15 @@ export async function requestWithdrawal(
   const availableSats = await getAvailableSats(creatorId);
   const amountSats = input.amountSats ?? availableSats;
 
-  if (amountSats < MIN_WITHDRAWAL_SATS) {
-    throw AppError.badRequest(`Minimum withdrawal is ${MIN_WITHDRAWAL_SATS} sats`);
+  if (amountSats < MIN_PAYOUT_SATS) {
+    throw AppError.badRequest(`Minimum withdrawal is ${MIN_PAYOUT_SATS} sats`);
   }
 
   if (amountSats > availableSats) {
     throw AppError.badRequest("Requested amount exceeds available balance");
   }
 
-  const eligibleTips = await prisma.tip.findMany({
-    where: { creatorId, status: "PAID", withdrawnAt: null },
-    orderBy: { createdAt: "asc" },
-  });
-
-  const tipsToCover: typeof eligibleTips = [];
-  let coveredSats = 0;
-  for (const tip of eligibleTips) {
-    if (coveredSats >= amountSats) break;
-    tipsToCover.push(tip);
-    coveredSats += tip.amountSats;
-  }
+  const tipsToCover = await selectTipsToCover(creatorId, amountSats);
 
   const { amountRwf, exchangeRateUsed } = await satsToRwf(amountSats);
   const reference = `tj${crypto.randomUUID().replace(/-/g, "")}`.slice(0, 42);

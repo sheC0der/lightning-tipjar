@@ -7,9 +7,12 @@ import type {
   BlinkMeResponse,
   CreateInvoiceParams,
   CreateInvoiceResult,
+  LnAddressPaymentSendResponse,
   LnInvoiceCreateResponse,
+  LnInvoicePaymentSendResponse,
   LnInvoicePaymentStatus,
   LnInvoicePaymentStatusResponse,
+  PaymentSendResult,
 } from "./blink.types.js";
 
 const blinkHttp = axios.create({
@@ -124,6 +127,60 @@ export async function getInvoicePaymentStatus(paymentRequest: string): Promise<L
 
   if (!status) {
     throw AppError.badGateway("Blink did not return an invoice status");
+  }
+
+  return status;
+}
+
+const LN_ADDRESS_PAYMENT_SEND_MUTATION = /* GraphQL */ `
+  mutation LnAddressPaymentSend($input: LnAddressPaymentSendInput!) {
+    lnAddressPaymentSend(input: $input) {
+      status
+      errors {
+        message
+      }
+    }
+  }
+`;
+
+export async function payToLightningAddress(amountSats: number, lnAddress: string): Promise<PaymentSendResult> {
+  const walletId = await getDefaultWalletId();
+
+  const result = await blinkRequest<LnAddressPaymentSendResponse>(LN_ADDRESS_PAYMENT_SEND_MUTATION, {
+    input: { walletId, amount: amountSats, lnAddress },
+  });
+
+  const { status, errors } = result.lnAddressPaymentSend;
+
+  if (errors?.length || !status) {
+    throw AppError.badGateway(`Payment to ${lnAddress} failed: ${errors.map((e) => e.message).join(", ")}`);
+  }
+
+  return status;
+}
+
+const LN_INVOICE_PAYMENT_SEND_MUTATION = /* GraphQL */ `
+  mutation LnInvoicePaymentSend($input: LnInvoicePaymentSendInput!) {
+    lnInvoicePaymentSend(input: $input) {
+      status
+      errors {
+        message
+      }
+    }
+  }
+`;
+
+export async function payInvoice(paymentRequest: string): Promise<PaymentSendResult> {
+  const walletId = await getDefaultWalletId();
+
+  const result = await blinkRequest<LnInvoicePaymentSendResponse>(LN_INVOICE_PAYMENT_SEND_MUTATION, {
+    input: { walletId, paymentRequest },
+  });
+
+  const { status, errors } = result.lnInvoicePaymentSend;
+
+  if (errors?.length || !status) {
+    throw AppError.badGateway(`Payment failed: ${errors.map((e) => e.message).join(", ")}`);
   }
 
   return status;
