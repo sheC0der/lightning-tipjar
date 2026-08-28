@@ -24,8 +24,8 @@ function Register() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     try {
-      const result = await register.mutateAsync(form);
-      navigate(`/${result.creator.username}`);
+      await register.mutateAsync(form);
+      navigate("/dashboard");
     } catch (err) {
       notify("error", getErrorMessage(err));
     }

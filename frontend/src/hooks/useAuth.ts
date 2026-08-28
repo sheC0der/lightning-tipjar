@@ -6,6 +6,7 @@ export interface AuthCreator {
   username: string;
   displayName: string;
   email: string;
+  lightningAddress?: string;
 }
 
 export interface AuthResult {

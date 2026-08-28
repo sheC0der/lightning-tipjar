@@ -26,5 +26,6 @@ export async function me(req: Request, res: Response) {
     avatarUrl: creator.avatarUrl,
     mobileMoneyNetwork: creator.mobileMoneyNetwork,
     mobileMoneyNumber: creator.mobileMoneyNumber,
+    lightningAddress: `${creator.username}@${req.get("host")}`,
   });
 }

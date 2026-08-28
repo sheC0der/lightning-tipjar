@@ -34,10 +34,9 @@ export interface LnInvoiceCreateResponse {
 }
 
 export interface LnInvoicePaymentStatusResponse {
-  lnInvoicePaymentStatus: {
-    status: LnInvoicePaymentStatus;
-    paymentHash: string;
-    errors: BlinkGraphQLError[];
+  lnInvoicePaymentStatusByPaymentRequest: {
+    status: LnInvoicePaymentStatus | null;
+    paymentHash: string | null;
   };
 }
 

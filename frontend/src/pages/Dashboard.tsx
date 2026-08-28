@@ -1,9 +1,11 @@
 import { Loader2, Wallet, Zap } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useCurrentCreator } from "../hooks/useAuth";
 import { useMyBalance, useMyTips, useMyWithdrawals } from "../hooks/useDashboard";
 import { useWithdraw } from "../hooks/useWithdraw";
 import { useNotify } from "../components/Notification";
 import { getErrorMessage } from "../services/api";
+import LightningAddressBadge from "../components/LightningAddressBadge";
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString();
@@ -33,6 +35,25 @@ function Dashboard() {
           Welcome back{me ? `, ${me.displayName}` : ""}
         </h1>
         <p className="text-sm text-slate-500">Here's how your TipJar is doing.</p>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-white p-6">
+        <h2 className="font-medium text-slate-900">Share your TipJar</h2>
+        <p className="text-sm text-slate-500">
+          Send people your tip page link, or paste your Lightning Address anywhere (like your social bio) so any
+          Lightning wallet can pay you directly — no account or website visit needed.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          {me && (
+            <Link
+              to={`/${me.username}`}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:border-orange-300 hover:bg-orange-50"
+            >
+              {window.location.host}/{me.username}
+            </Link>
+          )}
+          {me?.lightningAddress && <LightningAddressBadge address={me.lightningAddress} />}
+        </div>
       </div>
 
       <div className="flex flex-col items-start gap-4 rounded-2xl border border-slate-100 bg-white p-6 sm:flex-row sm:items-center sm:justify-between">

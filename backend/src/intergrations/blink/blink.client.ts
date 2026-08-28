@@ -107,13 +107,10 @@ export async function createInvoice({ amountSats, memo }: CreateInvoiceParams): 
 }
 
 const LN_INVOICE_PAYMENT_STATUS_QUERY = /* GraphQL */ `
-  query LnInvoicePaymentStatus($input: LnInvoicePaymentStatusInput!) {
-    lnInvoicePaymentStatus(input: $input) {
+  query LnInvoicePaymentStatusByPaymentRequest($input: LnInvoicePaymentStatusByPaymentRequestInput!) {
+    lnInvoicePaymentStatusByPaymentRequest(input: $input) {
       status
       paymentHash
-      errors {
-        message
-      }
     }
   }
 `;
@@ -123,10 +120,10 @@ export async function getInvoicePaymentStatus(paymentRequest: string): Promise<L
     input: { paymentRequest },
   });
 
-  const { status, errors } = result.lnInvoicePaymentStatus;
+  const { status } = result.lnInvoicePaymentStatusByPaymentRequest;
 
-  if (errors?.length) {
-    throw AppError.badGateway(`Failed to check invoice status: ${errors.map((e) => e.message).join(", ")}`);
+  if (!status) {
+    throw AppError.badGateway("Blink did not return an invoice status");
   }
 
   return status;

@@ -1,5 +1,6 @@
 import { User, Zap } from "lucide-react";
 import type { Creator } from "../hooks/useCreator";
+import LightningAddressBadge from "./LightningAddressBadge";
 
 interface CreatorCardProps {
   creator: Creator;
@@ -23,6 +24,10 @@ function CreatorCard({ creator }: CreatorCardProps) {
       <div className="flex items-center gap-1 rounded-full bg-orange-50 px-3 py-1 text-xs font-medium text-orange-600">
         <Zap className="h-3.5 w-3.5" />
         Supported via Bitcoin Lightning
+      </div>
+      <div className="flex flex-col items-center gap-1">
+        <p className="text-xs text-slate-400">Or pay directly from any Lightning wallet:</p>
+        <LightningAddressBadge address={creator.lightningAddress} />
       </div>
     </div>
   );

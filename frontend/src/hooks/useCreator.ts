@@ -7,6 +7,7 @@ export interface Creator {
   displayName: string;
   bio: string | null;
   avatarUrl: string | null;
+  lightningAddress: string;
 }
 
 export function useCreator(username: string | undefined) {
