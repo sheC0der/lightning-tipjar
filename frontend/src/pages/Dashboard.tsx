@@ -130,7 +130,7 @@ function Dashboard() {
             />
             <input
               type="number"
-              min={100}
+              min={2}
               placeholder={`Amount in sats (optional — defaults to full balance, ${(balance?.availableSats ?? 0).toLocaleString()} sats)`}
               value={sendAmount}
               onChange={(e) => setSendAmount(e.target.value)}

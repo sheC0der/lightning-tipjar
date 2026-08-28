@@ -2,9 +2,11 @@ import { prisma } from "../config/db.js";
 import { AppError } from "../utils/app-error.js";
 import { logger } from "../utils/logger.js";
 import { payInvoice, payToLightningAddress } from "../intergrations/blink/blink.client.js";
-import { getAvailableSats, selectTipsToCover, MIN_PAYOUT_SATS } from "./ledger.services.js";
+import { getAvailableSats, selectTipsToCover } from "./ledger.services.js";
 import type { CreateLightningSendInput } from "../schemas/lightning-send.schema.js";
 import type { LightningSendStatus } from "@prisma/client";
+
+const MIN_LIGHTNING_SEND_SATS = 2;
 
 export interface LightningSendResponse {
   id: string;
@@ -39,8 +41,8 @@ export async function requestLightningSend(
   const availableSats = await getAvailableSats(creatorId);
   const amountSats = input.amountSats ?? availableSats;
 
-  if (amountSats < MIN_PAYOUT_SATS) {
-    throw AppError.badRequest(`Minimum send is ${MIN_PAYOUT_SATS} sats`);
+  if (amountSats < MIN_LIGHTNING_SEND_SATS) {
+    throw AppError.badRequest(`Minimum send is ${MIN_LIGHTNING_SEND_SATS} sats`);
   }
 
   if (amountSats > availableSats) {
