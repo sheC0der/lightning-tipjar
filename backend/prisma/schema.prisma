@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Creator {
+  id                String   @id @default(uuid())
+  username          String   @unique
+  email             String   @unique
+  passwordHash      String
+  displayName       String
+  bio               String?
+  avatarUrl         String?
+  mobileMoneyNetwork String
+  mobileMoneyNumber String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tips        Tip[]
+  withdrawals Withdrawal[]
+}
+
+enum TipStatus {
+  PENDING
+  PAID
+  EXPIRED
+  FAILED
+}
+
+model Tip {
+  id                  String    @id @default(uuid())
+  creatorId           String
+  creator             Creator   @relation(fields: [creatorId], references: [id])
+  tipperName          String?
+  message             String?
+  amountSats          Int
+  status              TipStatus @default(PENDING)
+  blinkPaymentHash    String    @unique
+  blinkPaymentRequest String    @db.Text
+  withdrawalId        String?
+  withdrawal          Withdrawal? @relation(fields: [withdrawalId], references: [id])
+  withdrawnAt         DateTime?
+  createdAt           DateTime  @default(now())
+  paidAt              DateTime?
+
+  @@index([creatorId, status])
+}
+
+enum WithdrawalStatus {
+  PENDING
+  PROCESSING
+  SUCCESSFUL
+  FAILED
+}
+
+model Withdrawal {
+  id                    String           @id @default(uuid())
+  creatorId             String
+  creator               Creator          @relation(fields: [creatorId], references: [id])
+  amountSats            Int
+  amountRwf             Float
+  exchangeRateUsed      Float
+  status                WithdrawalStatus @default(PENDING)
+  flutterwaveTransferId String?
+  flutterwaveReference  String           @unique
+  failureReason         String?
+  createdAt             DateTime         @default(now())
+  completedAt           DateTime?
+
+  tips Tip[]
+
+  @@index([creatorId, status])
+}
